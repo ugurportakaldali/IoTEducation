@@ -1,0 +1,51 @@
+﻿@page "/cihazlar"
+
+<h1>Cihazlar</h1>
+<hr />
+
+<div>
+    <a href="cihazlar/yeni" class="btn btn-sm btn-success float-right mb-2">Ekle</a>
+</div>
+
+@if (list is not null)
+{
+    <table class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>Kod</th>
+                <th>Cihaz Adı</th>
+                <th>Son Erişim Tarihi</th>
+                <th>İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in list)
+            {
+                <tr>
+                    <td>@item.Code</td>
+                    <td>@item.Name</td>
+                    <td>@item.LastAccessDate?.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td class="text-center">
+                        <a href="cihazlar/@item.Id" class="btn btn-sm btn-info">Güncelle</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<DeviceDTO> list;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            list = await httpClient.GetFromJsonAsync<List<DeviceDTO>>("Device/search");
+        }
+        catch (Exception)
+        {
+            toastService.ShowError("Sistemsel bir hata ile karşılaşıldı!", "Hata");
+        }
+    }
+}

@@ -1,0 +1,142 @@
+﻿@page "/cihazlar/yeni"
+@page "/cihazlar/{Id:int}"
+
+<h3>
+    Cihaz Detayı
+    @if (lastData.Id > 0)
+    {
+        <span class="badge badge-@(lastData.DeviceHealth == 1 ? "success": lastData.DeviceHealth == 2 ? "warning" : "danger")">
+            @(lastData.DeviceHealth == 1 ? "İyi": lastData.DeviceHealth == 2 ? "Uyarı" : "Kritik")
+        </span>
+    }
+</h3>
+
+<hr />
+
+<div class="row">
+    <div class="col-sm-8">
+        <div class="mb-3 row">
+            <label for="staticEmail" class="col-sm-4 col-form-label font-weight-bolder">Kod</label>
+            <div class="col-sm-8">
+                <input type="text" class="form-control" maxlength="5" @bind-value="rec.Code">
+            </div>
+        </div>
+
+        <div class="mb-3 row">
+            <label for="staticEmail" class="col-sm-4 col-form-label font-weight-bolder">Cihaz Adı</label>
+            <div class="col-sm-8">
+                <input type="text" class="form-control" maxlength="50" @bind-value="rec.Name">
+            </div>
+        </div>
+
+        @if (Id > 0)
+        {
+            <div class="mb-3 row">
+                <label for="staticEmail" class="col-sm-4 col-form-label font-weight-bolder">Son Erişim Tarihi</label>
+                <div class="col-sm-8 d-flex align-items-center">
+                    @rec.LastAccessDate?.ToString("dd.MM.yyyy HH:mm")
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="col-sm-4 d-flex align-self-center justify-content-center">
+        @if (lastData.Id > 0)
+        {
+            <div id="chart_div" style="width: 240px; height: 120px;"></div>
+        }
+    </div>
+
+</div>
+
+<div style="height:38px;">
+    <span class="float-left">
+        <a href="/cihazlar" class="btn btn-secondary">Geri Dön</a>
+    </span>
+    <span class="float-right">
+        @if (Id > 0)
+        {
+            <button class="btn btn-danger" @onclick="Delete">Sil</button>
+        }
+        <button class="btn btn-success ml-2" @onclick="Save">Kaydet</button>
+    </span>
+</div>
+
+@if (lastData.Id > 0)
+{
+    <div id="map" class="mt-4" style="height: 400px;margin-top:1em;"></div>
+}
+
+
+
+@code {
+    [Parameter] public int Id { get; set; }
+    DeviceDataDTO lastData = new DeviceDataDTO();
+    DeviceDTO rec = new DeviceDTO();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id > 0)
+        {
+            rec = await httpClient.GetFromJsonAsync<DeviceDTO>("Device/" + Id);
+
+            HttpResponseMessage response = await httpClient.GetAsync("/DeviceData/Device/" + Id + "/Last");
+            if (response.IsSuccessStatusCode)
+            {
+                lastData = await response.Content.ReadFromJsonAsync<DeviceDataDTO>();
+                if (lastData is not null)
+                {
+                    StateHasChanged();
+                    await jsRuntime.InvokeAsync<object>("InitDeviceLastValuesChart", lastData.Humidity, lastData.Temperature);
+                    await jsRuntime.InvokeAsync<object>("InitDeviceLastValuesMap", lastData.Latitude, lastData.Longitude);
+                }
+            }
+        }
+    }
+
+    protected async Task Delete()
+    {
+        try
+        {
+            bool confirmed = await jsRuntime.InvokeAsync<bool>("confirm", "Kayıt silinecektir, Onaylıyor musunuz?");
+            if (confirmed)
+            {
+                HttpResponseMessage response = await httpClient.DeleteAsync("Device/" + Id);
+                if (response.IsSuccessStatusCode)
+                {
+                    navManager.NavigateTo("/cihazlar");
+                }
+            }
+        }
+        catch (Exception)
+        {
+            toastService.ShowError("Sistemsel bir hata ile karşılaşıldı!", "Hata");
+        }
+    }
+
+    protected async Task Save()
+    {
+        try
+        {
+            HttpResponseMessage response;
+            if (Id > 0)
+            {
+                response = await httpClient.PutAsJsonAsync<DeviceDTO>("Device", rec);
+            }
+            else
+            {
+                response = await httpClient.PostAsJsonAsync<DeviceDTO>("Device", rec);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                navManager.NavigateTo("/cihazlar");
+            }
+        }
+        catch (Exception)
+        {
+            toastService.ShowError("Sistemsel bir hata ile karşılaşıldı!", "Hata");
+        }
+    }
+}
